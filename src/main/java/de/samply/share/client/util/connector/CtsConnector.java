@@ -208,7 +208,8 @@ public class CtsConnector {
       response = httpClient.execute(httpPost);
       int statusCode = response.getStatusLine().getStatusCode();
       if (statusCode == 200 || statusCode == 201) {
-        String patients = readIds(patient,
+        String responseAsString = EntityUtils.toString(response.getEntity());
+        String patients = readIds(responseAsString,
             httpHeaders.getRequestHeader("X-BK-pseudonym-jsonpaths").get(0), true);
         return Response.status(statusCode).entity(patients).build();
       }
