@@ -478,7 +478,7 @@ public class MainzellisteConnector {
       checkStatusCode(response, statusCode, reasonPhrase);
       String encryptedIdString = EntityUtils.toString(response.getEntity());
       JsonObject encryptedId = (JsonObject) new JsonParser().parse(encryptedIdString);
-      return encryptedId.get("EncID").toString();
+      return encryptedId.get("EncID").getAsString();
     } catch (IOException e) {
       logger.error("Get Pseudonym from Mainzelliste: IOException: e: " + e);
       throw new IOException(e);
