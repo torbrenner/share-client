@@ -476,7 +476,9 @@ public class MainzellisteConnector {
       String reasonPhrase = statusLine.getReasonPhrase();
       insertEventLog(statusCode);
       checkStatusCode(response, statusCode, reasonPhrase);
-      return EntityUtils.toString(response.getEntity());
+      String encryptedIdString = EntityUtils.toString(response.getEntity());
+      JsonObject encryptedId = (JsonObject) new JsonParser().parse(encryptedIdString);
+      return encryptedId.get("EncID").getAsString();
     } catch (IOException e) {
       logger.error("Get Pseudonym from Mainzelliste: IOException: e: " + e);
       throw new IOException(e);
