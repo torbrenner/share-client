@@ -144,7 +144,7 @@ public class MainzellisteConnector {
       }
       if (patient != null && coverage != null && composition != null) {
         JsonObject jsonIdatObject = createJsonPatient(patient, coverage);
-        encryptedID = getPseudonymFromMainzelliste(jsonIdatObject);
+        encryptedID = requestPseudonymFromMainzelliste(jsonIdatObject);
         patientPseudonym = addPseudonymToPatient(patientPseudonym, encryptedID);
         compositionPseudonym = addPseudonymToComposition(compositionPseudonym, encryptedID);
         bundle.getEntry().get(compositionEntryIndex).setResource(compositionPseudonym);
@@ -388,7 +388,7 @@ public class MainzellisteConnector {
    * @return an encrypted ID
    * @throws IOException IOException
    */
-  private JsonObject getPseudonymFromMainzelliste(JsonObject patient)
+  private JsonObject requestPseudonymFromMainzelliste(JsonObject patient)
       throws IOException, IllegalArgumentException, NotFoundException, NotAuthorizedException {
     HttpPost httpPost = createHttpPost(GET_ENCRYPT_ID_URL);
     HttpEntity entity = new StringEntity(patient.toString(), Consts.UTF_8);
@@ -420,7 +420,7 @@ public class MainzellisteConnector {
    * @param patient the local cts patient
    * @return the patient with the replaced id
    */
-  public JsonObject getPatientWithPseudonymId(String patient)
+  public JsonObject requestEncryptedIdForPatient(String patient)
       throws IOException, IllegalArgumentException,
       NotFoundException, NotAuthorizedException {
     JsonObject patientAsJson = (JsonObject) parser.parse(patient);
@@ -455,9 +455,9 @@ public class MainzellisteConnector {
    * Post the patient id to the Mainzelliste to get the encryptedId.
    *
    * @param id patientId
-   * @return the patient with the replaced id
+   * @return the requested encrypted id
    */
-  public String getEncryptedIdWithPatientId(String id)
+  public String requestEncryptedIdWithPatientId(String id)
       throws IOException, IllegalArgumentException,
       NotFoundException, NotAuthorizedException {
     JsonObject jsonEntity = new JsonObject();
@@ -476,7 +476,9 @@ public class MainzellisteConnector {
       String reasonPhrase = statusLine.getReasonPhrase();
       insertEventLog(statusCode);
       checkStatusCode(response, statusCode, reasonPhrase);
-      return EntityUtils.toString(response.getEntity());
+      String encryptedIdString = EntityUtils.toString(response.getEntity());
+      JsonObject encryptedId = (JsonObject) new JsonParser().parse(encryptedIdString);
+      return encryptedId.get("EncID").getAsString();
     } catch (IOException e) {
       logger.error("Get Pseudonym from Mainzelliste: IOException: e: " + e);
       throw new IOException(e);
@@ -494,8 +496,8 @@ public class MainzellisteConnector {
   public JsonArray getLocalId(List<String> ctsIds)
       throws IOException, IllegalArgumentException,
       NotFoundException, NotAuthorizedException {
-    String uri = getMainzellisteSessionUri();
-    String tokenId = getMainzellisteReadToken(uri, ctsIds);
+    String id = getMainzellisteSessionId();
+    String tokenId = getMainzellisteReadToken(id, ctsIds);
     HttpGet httpGet = new HttpGet(
         ConfigurationUtil.getConfigurationElementValue(EnumConfiguration.CTS_PATIENT_LIST_URL)
             + "/patients/tokenId/" + tokenId);
@@ -518,7 +520,7 @@ public class MainzellisteConnector {
     }
   }
 
-  private String getMainzellisteSessionUri() throws IOException {
+  private String getMainzellisteSessionId() throws IOException, NotAuthorizedException {
     HttpPost httpPost = new HttpPost(
         ConfigurationUtil.getConfigurationElementValue(EnumConfiguration.CTS_PATIENT_LIST_URL)
             + "/sessions");
@@ -527,19 +529,25 @@ public class MainzellisteConnector {
     CloseableHttpResponse response = null;
     try {
       response = httpClient.execute(httpPost);
+      int statusCode = response.getStatusLine().getStatusCode();
+      String reasonPhrase = response.getStatusLine().getReasonPhrase();
+      insertEventLog(statusCode);
+      checkStatusCode(response, statusCode, reasonPhrase);
       JsonParser jsonParser = new JsonParser();
       JsonObject jsonObject = (JsonObject) jsonParser
           .parse(EntityUtils.toString(response.getEntity()));
-      return jsonObject.get("uri").getAsString();
+      return jsonObject.get("sessionId").getAsString();
     } catch (IOException e) {
       logger.error("Get session uri from Mainzelliste: IOException: e: " + e);
       throw new IOException(e);
     }
   }
 
-  private String getMainzellisteReadToken(String sessionUrl, List<String> ctsIds)
-      throws IOException {
-    HttpPost httpPost = new HttpPost(sessionUrl + "tokens");
+  private String getMainzellisteReadToken(String sessionId, List<String> ctsIds)
+      throws IOException, NotAuthorizedException {
+    HttpPost httpPost = new HttpPost(
+        ConfigurationUtil.getConfigurationElementValue(EnumConfiguration.CTS_PATIENT_LIST_URL)
+            + "/sessions/" + sessionId + "/tokens");
     httpPost.setHeader("mainzellisteApiKey",
         ConfigurationUtil.getConfigurationElementValue(EnumConfiguration.CTS_PATIENT_LIST_API_KEY));
     HttpEntity entity = new StringEntity(createJsonObjectForReadPatients(ctsIds), Consts.UTF_8);
@@ -549,6 +557,10 @@ public class MainzellisteConnector {
     CloseableHttpResponse response = null;
     try {
       response = httpClient.execute(httpPost);
+      int statusCode = response.getStatusLine().getStatusCode();
+      String reasonPhrase = response.getStatusLine().getReasonPhrase();
+      insertEventLog(statusCode);
+      checkStatusCode(response, statusCode, reasonPhrase);
       JsonParser jsonParser = new JsonParser();
       JsonObject jsonObject = (JsonObject) jsonParser
           .parse(EntityUtils.toString(response.getEntity()));
