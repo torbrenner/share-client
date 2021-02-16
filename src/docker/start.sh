@@ -69,5 +69,19 @@ sed -i "s|{nngm-mainzelliste-url}|${NNGM_MAINZELLISTE_URL}|"                "$fi
 
 export CATALINA_OPTS="${CATALINA_OPTS} -javaagent:/docker/jmx_prometheus_javaagent-0.3.1.jar=9100:/docker/jmx-exporter.yml"
 
+echo "Info: Checking for certificates in /custom-certs/";
+if [ -z "$(ls -A /custom-certs)" ]; then
+  echo "Info: No custom-certs provided. Won't import to keystore";
+else
+  echo "Info: Found custom-certs. Starting import of certs:"
+  castore="$JAVA_HOME/lib/security/cacerts"
+  for file in "/custom-certs/"*.pem
+  do
+    random=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1);
+    echo "Info: Importing $file into $castore as DKTK-$random";
+    keytool -importcert -file "$file" -keystore "$castore" --storepass "changeit" -alias "DKTK-$random" -noprompt;
+  done
+fi
+
 # Replace start.sh with catalina.sh
 exec /usr/local/tomcat/bin/catalina.sh run

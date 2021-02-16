@@ -8,6 +8,8 @@ ENV PROJECT=$PROJECT
 RUN ["rm", "-fr", "/usr/local/tomcat/webapps"]
 ADD target/connector.war                        /usr/local/tomcat/webapps/ROOT.war
 
+VOLUME ["/custom-certs"]
+
 # Adding fontconfig and libfreetype6 for rendering the BK Export, cf. https://stackoverflow.com/questions/55454036
 RUN	apt-get update && apt-get install -y fontconfig libfreetype6 && \
     rm -rf /var/lib/apt/lists/*
